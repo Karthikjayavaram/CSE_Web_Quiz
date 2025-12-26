@@ -1,0 +1,80 @@
+.rules-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top left, #1e293b, #0f172a);
+    padding: 2rem;
+}
+
+.rules-card {
+    width: 100%;
+    max-width: 700px;
+    padding: 3rem;
+    border-radius: 24px;
+    text-align: center;
+}
+
+.group-welcome {
+    background: rgba(56, 189, 248, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    color: #38bdf8;
+}
+
+.rules-list {
+    text-align: left;
+    margin: 2rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.rule-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.rule-icon {
+    color: #38bdf8;
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.agreement {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 2rem;
+    color: #94a3b8;
+}
+
+.start-button {
+    width: 100%;
+    margin-top: 2rem;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.start-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.start-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
