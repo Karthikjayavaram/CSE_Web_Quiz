@@ -35,7 +35,7 @@ const AdminDashboard = () => {
             console.log('AdminDashboard: Socket connected!', socket.id);
         });
 
-        socket.on('admin-violation-alert', (data) => {
+        socket.on('admin-violation-alert', (data: any) => {
             console.log('AdminDashboard: Received violation alert!', data);
             setViolations((prev) => {
                 const updated = [data, ...prev];
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
 
                 {activeTab === 'violators' && (
                     <div className="section">
-                        <h1>Heavy Violators (>2 Violations)</h1>
+                        <h1>Heavy Violators (&gt;2 Violations)</h1>
                         {heavyViolators.length === 0 ? (
                             <p className="empty">No groups have exceeded 2 violations.</p>
                         ) : (
