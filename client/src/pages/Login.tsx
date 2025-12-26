@@ -3,6 +3,9 @@ import axios from 'axios';
 import { Users, Phone, User } from 'lucide-react';
 import './Login.css';
 
+// Configure axios baseURL for production
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
 const Login = () => {
     const [credentials, setCredentials] = useState([
         { techziteId: '', phoneNumber: '' },
