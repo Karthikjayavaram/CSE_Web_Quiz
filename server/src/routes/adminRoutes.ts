@@ -1,9 +1,18 @@
 import express from 'express';
 import { Group } from '../models/Group';
-import { uploadStudents, uploadMiddleware } from '../controllers/adminController';
+import { uploadStudents, uploadMiddleware, adminLogin, getAllGroups, deleteGroup } from '../controllers/adminController';
 import { unlockGroup } from '../controllers/unlockController';
+import { verifyAdmin } from '../middleware/adminMiddleware';
 
 const router = express.Router();
+
+router.post('/login', adminLogin);
+
+// Protected Routes
+router.use(verifyAdmin);
+
+router.get('/groups', getAllGroups);
+router.delete('/groups/:id', deleteGroup);
 
 router.post('/upload-students', uploadMiddleware, uploadStudents);
 router.post('/unlock-group', unlockGroup);

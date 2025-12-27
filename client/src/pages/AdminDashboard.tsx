@@ -26,6 +26,16 @@ const AdminDashboard = () => {
     const [status, setStatus] = useState('');
     const [results, setResults] = useState<Result[]>([]);
     const [heavyViolators, setHeavyViolators] = useState<HeavyViolator[]>([]);
+    const [groups, setGroups] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        // Add auth header to axios
+        const token = localStorage.getItem('adminToken');
+        if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+    }, []);
 
     useEffect(() => {
         console.log('AdminDashboard: Connecting socket...');
@@ -61,8 +71,34 @@ const AdminDashboard = () => {
             fetchResults();
         } else if (activeTab === 'violators') {
             fetchHeavyViolators();
+        } else if (activeTab === 'groups') {
+            fetchGroups();
         }
     }, [activeTab]);
+
+    const fetchGroups = async () => {
+        try {
+            const response = await axios.get('/api/admin/groups');
+            setGroups(response.data);
+        } catch (error) {
+            console.error('Failed to fetch groups:', error);
+        }
+    };
+
+    const handleDeleteGroup = async (groupId: string) => {
+        if (!window.confirm('Are you sure you want to delete this group? They will be able to login again.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/admin/groups/${groupId}`);
+            setGroups(groups.filter(g => g.id !== groupId));
+            alert('Group deleted successfully');
+        } catch (error) {
+            alert('Failed to delete group');
+            console.error(error);
+        }
+    };
 
     const fetchResults = async () => {
         try {
@@ -130,6 +166,11 @@ const AdminDashboard = () => {
         a.click();
     };
 
+    const filteredGroups = groups.filter(g =>
+        g.groupIdentifier.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.students.some((s: any) => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.techziteId.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
     return (
         <div className="admin-dashboard">
             <aside className="sidebar glass">
@@ -146,6 +187,9 @@ const AdminDashboard = () => {
                     </button>
                     <button className={activeTab === 'results' ? 'active' : ''} onClick={() => setActiveTab('results')}>
                         <Trophy size={20} /> Quiz Results
+                    </button>
+                    <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>
+                        <ShieldAlert size={20} /> Manage Groups
                     </button>
                 </nav>
             </aside>
@@ -263,6 +307,61 @@ const AdminDashboard = () => {
                                 </table>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'groups' && (
+                    <div className="section">
+                        <h1>Manage Groups</h1>
+                        <input
+                            type="text"
+                            placeholder="Search by TechZite ID or Name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                marginBottom: '20px',
+                                borderRadius: '8px',
+                                border: '1px solid #ccc'
+                            }}
+                        />
+
+                        <div className="results-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>TechZite IDs</th>
+                                        <th>Status</th>
+                                        <th>Score</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredGroups.map((group) => (
+                                        <tr key={group.id}>
+                                            <td>
+                                                <div>
+                                                    {group.students.map((s: any) => (
+                                                        <div key={s.techziteId}>{s.techziteId} - {s.name}</div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td>{group.isFinished ? 'Finished' : 'In Progress'}</td>
+                                            <td>{group.score}</td>
+                                            <td>
+                                                <button
+                                                    onClick={() => handleDeleteGroup(group.id)}
+                                                    style={{ backgroundColor: '#f87171', color: 'white', padding: '5px 10px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </main>

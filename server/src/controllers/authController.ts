@@ -39,7 +39,20 @@ export const groupLogin = async (req: Request, res: Response) => {
                 groupId: groupIdStr,
                 students: studentIds,
                 violationCount: 0,
-                violatedMultipleTimes: false
+                violatedMultipleTimes: false,
+                quizState: {
+                    currentQuestionIndex: 0,
+                    isLocked: false,
+                    isFinished: false,
+                    score: 0
+                }
+            });
+        }
+
+        // Check if group has already finished the quiz
+        if (group.quizState && group.quizState.isFinished) {
+            return res.status(403).json({
+                message: 'Your group has already completed the quiz. You cannot login again unless authorized by an admin.'
             });
         }
 

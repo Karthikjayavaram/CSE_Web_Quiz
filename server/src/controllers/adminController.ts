@@ -69,3 +69,65 @@ export const uploadStudents = async (req: Request, res: Response) => {
 };
 
 export const uploadMiddleware = upload.single('file');
+
+import jwt from 'jsonwebtoken';
+import { Group } from '../models/Group';
+
+export const adminLogin = async (req: Request, res: Response) => {
+    try {
+        const { username, password } = req.body;
+
+        // Hardcoded credentials as per instructions
+        if (username === 'karthik' && password === 'karthik@123') {
+            const token = jwt.sign(
+                { username, role: 'admin' },
+                process.env.JWT_SECRET || 'secret',
+                { expiresIn: '24h' }
+            );
+            return res.json({ token, message: 'Login successful' });
+        }
+
+        res.status(401).json({ message: 'Invalid credentials' });
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const getAllGroups = async (req: Request, res: Response) => {
+    try {
+        const groups = await Group.find()
+            .populate('students', 'name techziteId')
+            .sort({ 'quizState.score': -1 }); // Sort by score pending
+
+        const formattedGroups = groups.map(group => ({
+            id: group._id,
+            groupIdentifier: group.groupId,
+            students: group.students.map((s: any) => ({
+                name: s.name,
+                techziteId: s.techziteId
+            })),
+            isFinished: group.quizState?.isFinished || false,
+            score: group.quizState?.score || 0,
+            startTime: group.quizState?.startTime,
+            violationCount: group.violationCount
+        }));
+
+        res.json(formattedGroups);
+    } catch (error) {
+        console.error('Get groups error:', error);
+        res.status(500).json({ message: 'Error fetching groups' });
+    }
+};
+
+export const deleteGroup = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        await Group.findByIdAndDelete(id);
+        res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+        console.error('Delete group error:', error);
+        res.status(500).json({ message: 'Error deleting group' });
+    }
+};
+
