@@ -104,6 +104,60 @@
     color: #f87171;
     background: rgba(248, 113, 113, 0.1);
     padding: 10px;
-    border-radius: 8px;
+
     margin-bottom: 1.5rem;
+}
+
+/* Admin Login Specifics */
+.admin-login-bg {
+    background: radial-gradient(circle at bottom right, #391432, #0f172a);
+}
+
+.glass-dark {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(244, 114, 182, 0.2);
+    box-shadow: 0 0 40px rgba(244, 114, 182, 0.1);
+}
+
+.icon-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.admin-btn {
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+}
+
+.admin-btn:hover {
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.6);
+}
+
+.input-field-wrapper {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.input-field-wrapper label {
+    display: block;
+    color: #cbd5e1;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
 }

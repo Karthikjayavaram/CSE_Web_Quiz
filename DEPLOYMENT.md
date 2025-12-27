@@ -25,6 +25,7 @@
 4.  **Environment Variables**:
     *   Vite requires env variables to start with `VITE_`.
     *   However, since we are using a proxy in `vite.config.ts` for local dev, for production we need to point the API calls to the Render backend.
+
     *   **ACTION REQUIRED**: In `client/src/main.tsx` or where you set up Axios, you should set a base URL based on environment.
     
     *Update `client/src/App.tsx` or a global config:*
@@ -33,11 +34,15 @@
     
     // Set base URL for production
     if (import.meta.env.PROD) {
-        axios.defaults.baseURL = 'https://your-render-backend-url.onrender.com';
+        axios.defaults.baseURL = 'https://quiz-event-backend.onrender.com';
     }
     ```
 
+    > [!IMPORTANT]
+    > **Vercel Deployment**: Vercel automatically deploys your latest `main` branch commit. You do NOT need to "button deploy" manually. Just run `git push` and Vercel will detect the changes and rebuild your site in a few minutes.
+
 ## 3. Post-Deployment
+
 
 1.  **Admin Access**:
     *   Go to `https://your-vercel-app.vercel.app/admin`.
