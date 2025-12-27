@@ -31,6 +31,20 @@ export const groupLogin = async (req: Request, res: Response) => {
 
         // Create or Find Group
         const studentIds = students.map(s => s._id).sort();
+
+        // STRICT CHECK: Ensure NONE of these students have participated in a finished quiz
+        // regardless of who they are grouping with now.
+        const existingFinishedGroup = await Group.findOne({
+            students: { $in: studentIds },
+            'quizState.isFinished': true
+        });
+
+        if (existingFinishedGroup) {
+            return res.status(403).json({
+                message: 'One or more members have already completed the quiz in another group. Login denied.'
+            });
+        }
+
         const groupIdStr = studentIds.join('_');
 
         let group = await Group.findOne({ groupId: groupIdStr });

@@ -416,8 +416,14 @@ const AdminDashboard = () => {
                                             )}
                                             {selectedResource === 'groups' && (
                                                 <>
-                                                    <td style={{ padding: '1rem' }}>{item.groupId.substring(0, 8)}...</td>
-                                                    <td style={{ padding: '1rem' }}>{item.students?.map((s: any) => s.name || s).join(', ')}</td>
+                                                    <td style={{ padding: '1rem' }}>
+                                                        {item.groupId ? item.groupId.substring(0, 8) + '...' : 'N/A'}
+                                                    </td>
+                                                    <td style={{ padding: '1rem' }}>
+                                                        {item.students && item.students.length > 0
+                                                            ? item.students.map((s: any) => s.name || s).join(', ')
+                                                            : 'No Students'}
+                                                    </td>
                                                     <td style={{ padding: '1rem' }}>
                                                         {item.quizState?.isFinished ? '✅ Done' : '⚠️ Active'}
                                                     </td>
