@@ -34,7 +34,15 @@ export const groupLogin = async (req: Request, res: Response) => {
         const groupIdStr = studentIds.join('_');
 
         let group = await Group.findOne({ groupId: groupIdStr });
-        if (!group) {
+        if (group) {
+            // Check if group has already finished the quiz
+            if (group.quizState && group.quizState.isFinished) {
+                return res.status(403).json({
+                    message: 'Quiz already submitted. You cannot login again.'
+                });
+            }
+            // Verify other students in the group
+        } else {
             group = await Group.create({
                 groupId: groupIdStr,
                 students: studentIds,

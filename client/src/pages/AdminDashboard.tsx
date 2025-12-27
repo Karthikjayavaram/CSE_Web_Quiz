@@ -38,7 +38,10 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         console.log('AdminDashboard: Connecting socket...');
-        socket.connect();
+
+        if (!socket.connected) {
+            socket.connect();
+        }
 
         function onConnect() {
             console.log('AdminDashboard: Socket connected!', socket.id);
@@ -50,23 +53,27 @@ const AdminDashboard = () => {
             setIsConnected(false);
         }
 
-        socket.on('connect', onConnect);
-        socket.on('disconnect', onDisconnect);
-
-
-        socket.on('admin-violation-alert', (data: any) => {
+        function onViolation(data: any) {
             console.log('AdminDashboard: Received violation alert!', data);
             setViolations((prev) => {
                 const updated = [data, ...prev];
-                console.log('Updated violations list:', updated);
                 return updated;
             });
-        });
+        }
+
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+        socket.on('admin-violation-alert', onViolation);
+
+        // Initial check
+        setIsConnected(socket.connected);
 
         return () => {
             socket.off('connect', onConnect);
             socket.off('disconnect', onDisconnect);
-            socket.off('admin-violation-alert');
+            socket.off('admin-violation-alert', onViolation);
+            // We usually don't want to disconnect the socket entirely if other components use it, 
+            // but for Admin Dashboard it's fine.
             socket.disconnect();
         };
     }, []);
@@ -374,20 +381,55 @@ const AdminDashboard = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <th style={{ padding: '1rem' }}>ID</th>
-                                        <th style={{ padding: '1rem' }}>Data Preview</th>
+                                        {selectedResource === 'students' && (
+                                            <>
+                                                <th>TechID</th>
+                                                <th>Name</th>
+                                                <th>Phone</th>
+                                            </>
+                                        )}
+                                        {selectedResource === 'groups' && (
+                                            <>
+                                                <th>Group ID</th>
+                                                <th>Students</th>
+                                                <th>Status</th>
+                                            </>
+                                        )}
+                                        {selectedResource === 'quizzes' && (
+                                            <>
+                                                <th>Title</th>
+                                                <th>Questions</th>
+                                            </>
+                                        )}
                                         <th style={{ padding: '1rem' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {resourcesData.map((item: any) => (
                                         <tr key={item._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ padding: '1rem', opacity: 0.7, fontFamily: 'monospace' }}>{item._id}</td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <div style={{ maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.9 }}>
-                                                    {item.name || item.groupId || item.title || JSON.stringify(item)}
-                                                </div>
-                                            </td>
+                                            {selectedResource === 'students' && (
+                                                <>
+                                                    <td style={{ padding: '1rem' }}>{item.techziteId}</td>
+                                                    <td style={{ padding: '1rem' }}>{item.name}</td>
+                                                    <td style={{ padding: '1rem' }}>{item.phoneNumber}</td>
+                                                </>
+                                            )}
+                                            {selectedResource === 'groups' && (
+                                                <>
+                                                    <td style={{ padding: '1rem' }}>{item.groupId.substring(0, 8)}...</td>
+                                                    <td style={{ padding: '1rem' }}>{item.students?.map((s: any) => s.name || s).join(', ')}</td>
+                                                    <td style={{ padding: '1rem' }}>
+                                                        {item.quizState?.isFinished ? '✅ Done' : '⚠️ Active'}
+                                                    </td>
+                                                </>
+                                            )}
+                                            {selectedResource === 'quizzes' && (
+                                                <>
+                                                    <td style={{ padding: '1rem' }}>{item.title || 'Quiz'}</td>
+                                                    <td style={{ padding: '1rem' }}>{item.questions?.length || 0} Qs</td>
+                                                </>
+                                            )}
+
                                             <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
                                                 <button onClick={() => openEdit(item)} style={{ padding: '0.5rem 1rem', background: '#3b82f6', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Edit</button>
                                                 <button onClick={() => handleDeleteResource(item._id)} style={{ padding: '0.5rem 1rem', background: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}>Delete</button>
