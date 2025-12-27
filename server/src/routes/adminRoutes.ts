@@ -1,14 +1,22 @@
 import express from 'express';
 import { Group } from '../models/Group';
-import { uploadStudents, uploadMiddleware } from '../controllers/adminController';
+import { uploadStudents, uploadMiddleware, authenticateAdmin } from '../controllers/adminController';
 import { unlockGroup } from '../controllers/unlockController';
 import { groupLogin } from '../controllers/authController';
+import { getAllResources, deleteResource, updateResource, createResource } from '../controllers/resourceController';
 
 const router = express.Router();
 
 router.post('/upload-students', uploadMiddleware, uploadStudents);
 router.post('/unlock-group', unlockGroup);
-router.post('/login', groupLogin);
+router.post('/login', groupLogin); // Legacy/Alternative
+router.post('/authenticate', authenticateAdmin);
+
+// Generic Resource Managment
+router.get('/resources/:resource', getAllResources);
+router.post('/resources/:resource', createResource);
+router.put('/resources/:resource/:id', updateResource);
+router.delete('/resources/:resource/:id', deleteResource);
 
 // Heavy violators endpoint
 router.get('/heavy-violators', async (req, res) => {

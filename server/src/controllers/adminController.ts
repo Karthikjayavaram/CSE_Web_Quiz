@@ -68,4 +68,26 @@ export const uploadStudents = async (req: Request, res: Response) => {
     }
 };
 
+
 export const uploadMiddleware = upload.single('file');
+
+import jwt from 'jsonwebtoken';
+
+export const authenticateAdmin = async (req: Request, res: Response) => {
+    const { username, password } = req.body;
+
+    // Check against env variables or defaults
+    const validUsername = process.env.ADMIN_USERNAME || 'admin';
+    const validPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (username === validUsername && password === validPassword) {
+        const token = jwt.sign(
+            { role: 'admin', username },
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: '24h' }
+        );
+        return res.json({ token, message: 'Admin authenticated' });
+    }
+
+    return res.status(401).json({ message: 'Invalid credentials' });
+};
