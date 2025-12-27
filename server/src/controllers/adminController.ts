@@ -76,9 +76,12 @@ import jwt from 'jsonwebtoken';
 export const authenticateAdmin = async (req: Request, res: Response) => {
     const { username, password } = req.body;
 
+    console.log('Login attempt:', { username, passwordProvided: !!password });
     // Check against env variables or defaults
     const validUsername = process.env.ADMIN_USERNAME || 'admin';
     const validPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    console.log('Valid credentials:', { validUsername, validPassword }); // Be careful not to expose this in prod logs permanently, but okay for debugging now.
 
     if (username === validUsername && password === validPassword) {
         const token = jwt.sign(
