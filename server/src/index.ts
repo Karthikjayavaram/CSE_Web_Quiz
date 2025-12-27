@@ -15,68 +15,80 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: [
-            'http://localhost:5173',
-            'http://localhost:3000',
-            'https://cse-web-quiz.vercel.app'
-        ],
-        methods: ['GET', 'POST'],
-        credentials: true
-    }
-});
 
-// CORS Configuration
+/* =======================
+   ALLOWED ORIGINS
+======================= */
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://cse-web-quiz.vercel.app'
 ];
 
+/* =======================
+   CORS (HTTP)
+======================= */
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+        if (
+            allowedOrigins.includes(origin) ||
+            origin.endsWith('.vercel.app')
+        ) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            callback(null, false);
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
+
+/* 🔴 VERY IMPORTANT FOR NODE 22 */
+app.options('*', cors());
+
 
 app.use(express.json());
 
-// Routes
+/* =======================
+   ROUTES
+======================= */
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/quiz', quizRoutes);
 
-app.get('/health', (req, res) => res.send('API is healthy'));
+app.get('/health', (req, res) => {
+    res.send('API is healthy');
+});
 
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/quiz-event';
-mongoose.connect(MONGODB_URI, { dbName: 'QuizDB' })
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
+/* =======================
+   DATABASE
+======================= */
+const MONGODB_URI =
+    process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/quiz-event';
 
-// Socket.io
+mongoose
+    .connect(MONGODB_URI, { dbName: 'QuizDB' })
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.error('❌ MongoDB error:', err));
+
+/* =======================
+   SOCKET.IO
+======================= */
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ['GET', 'POST']
+    }
+});
+
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log('🟢 Socket connected:', socket.id);
 
     socket.on('violation', async (data) => {
-        console.log('>>> VIOLATION RECEIVED <<<');
-        console.log('Type:', data.type);
-        console.log('Group ID:', data.groupId);
-        console.log('Students:', data.studentNames);
-        console.log('Timestamp:', data.timestamp);
-
         try {
-            // Update violation count in database
             const group = await Group.findById(data.groupId);
             if (group) {
                 group.violationCount = (group.violationCount || 0) + 1;
@@ -85,32 +97,31 @@ io.on('connection', (socket) => {
                     timestamp: new Date(data.timestamp)
                 });
 
-                // Flag if more than 2 violations
                 if (group.violationCount > 2) {
                     group.violatedMultipleTimes = true;
                 }
 
                 await group.save();
-                console.log(`Violation count updated: ${group.violationCount}`);
             }
-        } catch (error) {
-            console.error('Error updating violation count:', error);
-        }
 
-        // Broadcast to ALL connected clients (especially admins)
-        io.emit('admin-violation-alert', data);
-        console.log('Violation broadcasted to all clients');
+            io.emit('admin-violation-alert', data);
+        } catch (err) {
+            console.error('Violation error:', err);
+        }
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log('🔴 Socket disconnected');
     });
 });
 
-// Pass io instance to controllers that need it
 setSocketIO(io);
 
+/* =======================
+   SERVER
+======================= */
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
