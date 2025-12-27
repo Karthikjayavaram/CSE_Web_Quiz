@@ -45,10 +45,6 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
-/* 🔴 VERY IMPORTANT FOR NODE 22 */
-app.options('*', cors());
-
-
 app.use(express.json());
 
 /* =======================
