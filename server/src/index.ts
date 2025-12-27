@@ -22,7 +22,8 @@ const server = http.createServer(app);
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
-    'https://cse-web-quiz.vercel.app'
+    'https://cse-web-quiz.vercel.app',
+    'https://cse-web-quiz.onrender.com'
 ];
 
 /* =======================
