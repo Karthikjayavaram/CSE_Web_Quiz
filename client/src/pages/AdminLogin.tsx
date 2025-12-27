@@ -21,7 +21,13 @@ const AdminLogin = () => {
             localStorage.setItem('adminToken', response.data.token);
             navigate('/admin');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Invalid credentials');
+            console.error('Login Error:', err);
+            const msg = err.response?.data?.message || err.message;
+            if (msg === 'Network Error') {
+                setError('Connection failed. Please check CORS/Server status.');
+            } else {
+                setError(msg || 'Invalid credentials');
+            }
             setIsLoading(false);
         }
     };
