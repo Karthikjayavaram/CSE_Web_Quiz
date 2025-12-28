@@ -78,19 +78,39 @@ export const authenticateAdmin = async (req: Request, res: Response) => {
 
     console.log('Login attempt:', { username, passwordProvided: !!password });
     // Check against env variables or defaults
-    const validUsername = process.env.ADMIN_USERNAME || 'admin';
-    const validPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    // Check against env variables or defaults (TRIMVED)
+    const validUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
+    const validPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
+    const providedUsername = (username || '').trim();
+    const providedPassword = (password || '').trim();
 
-    console.log('Valid credentials:', { validUsername, validPassword }); // Be careful not to expose this in prod logs permanently, but okay for debugging now.
+    const isUsernameMatch = providedUsername === validUsername;
+    const isPasswordMatch = providedPassword === validPassword;
 
-    if (username === validUsername && password === validPassword) {
+    console.log('Comparison Details:', {
+        usernameProvided: `[${providedUsername}]`,
+        usernameValid: `[${validUsername}]`,
+        usernameMatch: isUsernameMatch,
+        passwordMatch: isPasswordMatch,
+        usernameLen: providedUsername.length,
+        validUsernameLen: validUsername.length,
+        passwordLen: providedPassword.length,
+        validPasswordLen: validPassword.length
+    });
+
+    if (isUsernameMatch && isPasswordMatch) {
+
         const token = jwt.sign(
-            { role: 'admin', username },
+            { role: 'admin', username: providedUsername },
             process.env.JWT_SECRET || 'secret',
             { expiresIn: '24h' }
         );
+
+        console.log('Authentication Successful, token generated');
         return res.json({ token, message: 'Admin authenticated' });
     }
 
+    console.log('Authentication Failed');
     return res.status(401).json({ message: 'Invalid credentials' });
+
 };

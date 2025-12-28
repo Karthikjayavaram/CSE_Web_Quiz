@@ -16,8 +16,12 @@ const AdminLogin = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await axios.post('/api/admin/authenticate', { username, password });
+            const response = await axios.post('/api/admin/authenticate', {
+                username: username.trim(),
+                password: password.trim()
+            });
             sessionStorage.setItem('adminToken', response.data.token);
+
             navigate('/admin');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Invalid credentials');
