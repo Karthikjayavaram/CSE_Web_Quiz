@@ -17,11 +17,12 @@ function App() {
                 <Route
                     path="/admin"
                     element={
-                        sessionStorage.getItem('adminToken')
+                        localStorage.getItem('adminToken')
                             ? <AdminDashboard />
                             : <Navigate to="/admin/login" replace />
                     }
                 />
+
                 <Route path="/" element={<Navigate to="/login" replace />} />
             </Routes>
         </Router>

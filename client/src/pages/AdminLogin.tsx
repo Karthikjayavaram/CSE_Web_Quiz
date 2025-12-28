@@ -20,7 +20,8 @@ const AdminLogin = () => {
                 username: username.trim(),
                 password: password.trim()
             });
-            sessionStorage.setItem('adminToken', response.data.token);
+            localStorage.setItem('adminToken', response.data.token);
+
 
             navigate('/admin');
         } catch (err: any) {

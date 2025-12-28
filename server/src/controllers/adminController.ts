@@ -104,8 +104,9 @@ export const authenticateAdmin = async (req: Request, res: Response) => {
         const token = jwt.sign(
             { role: 'admin', username: providedUsername },
             process.env.JWT_SECRET || 'secret',
-            { expiresIn: '24h' }
+            { expiresIn: '3d' }
         );
+
 
         console.log('Authentication Successful, token generated');
         return res.json({ token, message: 'Admin authenticated' });

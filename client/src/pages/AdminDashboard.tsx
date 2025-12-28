@@ -39,7 +39,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         // Set up axios interceptor for admin token
         const interceptor = axios.interceptors.request.use((config) => {
-            const token = sessionStorage.getItem('adminToken');
+            const token = localStorage.getItem('adminToken');
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
@@ -50,12 +50,13 @@ const AdminDashboard = () => {
             (response) => response,
             (error) => {
                 if (error.response?.status === 401) {
-                    sessionStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminToken');
                     window.location.href = '/admin/login';
                 }
                 return Promise.reject(error);
             }
         );
+
 
         console.log('AdminDashboard: Connecting socket...');
 
@@ -210,9 +211,10 @@ const AdminDashboard = () => {
     };
 
     const logout = () => {
-        sessionStorage.removeItem('adminToken');
+        localStorage.removeItem('adminToken');
         window.location.reload();
     };
+
 
     const handleDeleteResource = async (id: string) => {
 
