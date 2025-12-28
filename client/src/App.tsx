@@ -17,7 +17,7 @@ function App() {
                 <Route
                     path="/admin"
                     element={
-                        localStorage.getItem('adminToken')
+                        sessionStorage.getItem('adminToken')
                             ? <AdminDashboard />
                             : <Navigate to="/admin/login" replace />
                     }

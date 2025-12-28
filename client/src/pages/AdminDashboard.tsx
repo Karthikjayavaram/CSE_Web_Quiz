@@ -1,7 +1,7 @@
-import { FormEvent, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
-import { Upload, Activity, ShieldAlert, Trophy, Download, Database } from 'lucide-react';
+import { Activity, ShieldAlert, Trophy, Download, Database, LogOut, Plus } from 'lucide-react';
 import './AdminDashboard.css';
 
 interface Result {
@@ -22,8 +22,6 @@ interface HeavyViolator {
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('monitor');
     const [violations, setViolations] = useState<any[]>([]);
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
-    const [status, setStatus] = useState('');
     const [results, setResults] = useState<Result[]>([]);
     const [heavyViolators, setHeavyViolators] = useState<HeavyViolator[]>([]);
 
@@ -32,9 +30,11 @@ const AdminDashboard = () => {
     // Database Management
     const [selectedResource, setSelectedResource] = useState('students');
     const [resourcesData, setResourcesData] = useState<any[]>([]);
+    const [studentsList, setStudentsList] = useState<any[]>([]); // For Group selection
     const [editItem, setEditItem] = useState<any | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const [jsonInput, setJsonInput] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+
 
     useEffect(() => {
         console.log('AdminDashboard: Connecting socket...');
@@ -85,8 +85,44 @@ const AdminDashboard = () => {
             fetchHeavyViolators();
         } else if (activeTab === 'database') {
             fetchResources();
+            if (selectedResource === 'groups') fetchStudentsList();
         }
     }, [activeTab, selectedResource]);
+
+    const fetchStudentsList = async () => {
+        try {
+            const response = await axios.get('/api/admin/resources/students');
+            setStudentsList(response.data);
+        } catch (error) {
+            console.error('Failed to fetch students list:', error);
+        }
+    };
+
+    const filteredData = resourcesData.filter(item => {
+        if (!searchTerm) return true;
+        const lowSearch = searchTerm.toLowerCase();
+
+        if (selectedResource === 'students') {
+            return (
+                item.name?.toLowerCase().includes(lowSearch) ||
+                item.techziteId?.toLowerCase().includes(lowSearch) ||
+                item.phoneNumber?.includes(lowSearch) ||
+                item.email?.toLowerCase().includes(lowSearch)
+            );
+        } else if (selectedResource === 'groups') {
+            return (
+                item.groupId?.toLowerCase().includes(lowSearch) ||
+                item.students?.some((s: any) =>
+                    (s.name || s).toLowerCase().includes(lowSearch) ||
+                    (s.techziteId || '').toLowerCase().includes(lowSearch)
+                )
+            );
+        } else if (selectedResource === 'quizzes') {
+            return item.title?.toLowerCase().includes(lowSearch);
+        }
+        return true;
+    });
+
 
     const fetchResources = async () => {
         try {
@@ -118,22 +154,7 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleFileUpload = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!uploadFile) return;
 
-        const formData = new FormData();
-        formData.append('file', uploadFile);
-
-        try {
-            setStatus('Uploading...');
-            await axios.post('/api/admin/upload-students', formData);
-            setStatus('Students uploaded successfully!');
-            setTimeout(() => setStatus(''), 3000);
-        } catch (err: any) {
-            setStatus('Upload failed: ' + (err.response?.data?.message || err.message));
-        }
-    };
 
     const handleApprove = async (groupId: string) => {
         try {
@@ -164,7 +185,13 @@ const AdminDashboard = () => {
         a.click();
     };
 
+    const logout = () => {
+        sessionStorage.removeItem('adminToken');
+        window.location.reload();
+    };
+
     const handleDeleteResource = async (id: string) => {
+
         if (!confirm('Are you sure you want to delete this item?')) return;
         try {
             await axios.delete(`/api/admin/resources/${selectedResource}/${id}`);
@@ -177,8 +204,20 @@ const AdminDashboard = () => {
 
     const handleSaveResource = async () => {
         try {
-            const data = JSON.parse(jsonInput);
-            if (editItem) {
+            let data = { ...editItem };
+
+            if (selectedResource === 'students') {
+                if (!data.email || data.email.trim() === '') {
+                    data.email = null;
+                }
+            } else if (selectedResource === 'groups') {
+                if (data.studentSelections) {
+                    data.students = data.studentSelections.filter((id: string) => id !== '');
+                    delete data.studentSelections;
+                }
+            }
+
+            if (!isCreating && editItem && editItem._id) {
                 await axios.put(`/api/admin/resources/${selectedResource}/${editItem._id}`, data);
             } else {
                 await axios.post(`/api/admin/resources/${selectedResource}`, data);
@@ -187,21 +226,35 @@ const AdminDashboard = () => {
             setIsCreating(false);
             fetchResources();
         } catch (error) {
-            alert('Operation failed. Check JSON format or Server logs.\n' + error);
+            alert('Operation failed. Check data format or Server logs.\n' + error);
         }
     };
 
+
     const openEdit = (item: any) => {
-        setEditItem(item);
-        setJsonInput(JSON.stringify(item, null, 2));
+        if (selectedResource === 'groups') {
+            const studentIds = item.students?.map((s: any) => s._id || s) || [];
+            setEditItem({
+                ...item,
+                studentSelections: [...studentIds, '', '', ''].slice(0, 3)
+            });
+        } else {
+            setEditItem(item);
+        }
         setIsCreating(false);
     };
 
     const openCreate = () => {
-        setEditItem(null);
-        setJsonInput('{\n  \n}');
+        if (selectedResource === 'students') {
+            setEditItem({ techziteId: '', name: '', email: '', phoneNumber: '' });
+        } else if (selectedResource === 'groups') {
+            setEditItem({ groupId: '', studentSelections: ['', '', ''] });
+        } else if (selectedResource === 'quizzes') {
+            setEditItem({ title: '', questions: [{ text: '', options: ['', '', '', ''], correctAnswer: 0, points: 1 }] });
+        }
         setIsCreating(true);
     };
+
 
     return (
         <div className="admin-dashboard">
@@ -214,17 +267,20 @@ const AdminDashboard = () => {
                     <button className={activeTab === 'violators' ? 'active' : ''} onClick={() => setActiveTab('violators')}>
                         <ShieldAlert size={20} /> Heavy Violators
                     </button>
-                    <button className={activeTab === 'students' ? 'active' : ''} onClick={() => setActiveTab('students')}>
-                        <Upload size={20} /> Manage Students
-                    </button>
                     <button className={activeTab === 'results' ? 'active' : ''} onClick={() => setActiveTab('results')}>
                         <Trophy size={20} /> Quiz Results
                     </button>
                     <button className={activeTab === 'database' ? 'active' : ''} onClick={() => setActiveTab('database')}>
                         <Database size={20} /> Database
                     </button>
+                    <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
+                        <button onClick={logout} style={{ width: '100%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
+                            <LogOut size={20} /> Logout
+                        </button>
+                    </div>
                 </nav>
             </aside>
+
 
             <main className="content">
                 {activeTab === 'monitor' && (
@@ -260,7 +316,7 @@ const AdminDashboard = () => {
 
                 {activeTab === 'violators' && (
                     <div className="section">
-                        <h1>Heavy Violators (&gt;2 Violations)</h1>
+                        <h1>Heavy Violators ({">"}2 Violations)</h1>
                         {heavyViolators.length === 0 ? (
                             <p className="empty">No groups have exceeded 2 violations.</p>
                         ) : (
@@ -283,22 +339,6 @@ const AdminDashboard = () => {
                                 </table>
                             </div>
                         )}
-                    </div>
-                )}
-
-                {activeTab === 'students' && (
-                    <div className="section">
-                        <h1>Student Management</h1>
-                        <div className="upload-box glass">
-                            <h3>Upload Student Excel Sheet</h3>
-                            <p><strong>Required columns:</strong> techziteId | name | email | phoneNumber</p>
-                            <p className="info-text">⚠️ Uploading will replace ALL existing students</p>
-                            <form onSubmit={handleFileUpload}>
-                                <input type="file" onChange={(e) => setUploadFile(e.target.files ? e.target.files[0] : null)} accept=".xlsx, .xls" />
-                                <button type="submit" className="upload-btn">Upload Students</button>
-                            </form>
-                            {status && <p className="status-msg">{status}</p>}
-                        </div>
                     </div>
                 )}
 
@@ -345,37 +385,252 @@ const AdminDashboard = () => {
                 {activeTab === 'database' && (
                     <div className="section">
                         <h1>Database Management</h1>
-                        <div className="controls glass" style={{ marginBottom: '1rem', padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                            <label>Select Collection:</label>
-                            <select
-                                value={selectedResource}
-                                onChange={(e) => setSelectedResource(e.target.value)}
-                                style={{ padding: '0.5rem', borderRadius: '4px', background: 'white', color: 'black' }}
-                            >
-                                <option value="students">Students</option>
-                                <option value="groups">Groups</option>
-                                <option value="quizzes">Quizzes</option>
-                            </select>
-                            <button className="approve" onClick={openCreate}>+ Add New JSON</button>
+
+                        <div className="controls glass" style={{
+                            marginBottom: '2rem',
+                            padding: '1.5rem',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: '1.5rem',
+                            alignItems: 'end',
+                            borderRadius: '12px'
+                        }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#94a3b8' }}>Select Collection</label>
+                                <select
+                                    value={selectedResource}
+                                    onChange={(e) => setSelectedResource(e.target.value)}
+                                    style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', width: '100%', cursor: 'pointer' }}
+                                >
+                                    <option value="students" style={{ background: '#1e293b' }}>Students</option>
+                                    <option value="groups" style={{ background: '#1e293b' }}>Groups</option>
+                                    <option value="quizzes" style={{ background: '#1e293b' }}>Quizzes</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#94a3b8' }}>Search Records</label>
+                                <input
+                                    type="text"
+                                    placeholder={`Search in ${selectedResource}...`}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                                />
+                            </div>
+
+                            <button className="approve" onClick={openCreate} style={{ height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0 1.5rem', borderRadius: '8px' }}>
+                                <Plus size={20} />
+                                <span style={{ fontWeight: 'bold' }}>{selectedResource === 'students' ? 'Add Student' :
+                                    selectedResource === 'groups' ? 'Add Group' : 'Add Quiz'}</span>
+                            </button>
                         </div>
 
+
                         {(editItem || isCreating) && (
-                            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                                <div className="modal glass" style={{ padding: '2rem', width: '600px', maxWidth: '90%', background: '#1e293b' }}>
-                                    <h2>{isCreating ? 'Create New' : 'Edit Item'} ({selectedResource})</h2>
-                                    <textarea
-                                        value={jsonInput}
-                                        onChange={e => setJsonInput(e.target.value)}
-                                        rows={15}
-                                        style={{ width: '100%', fontFamily: 'monospace', padding: '1rem', marginTop: '1rem', background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155' }}
-                                    />
-                                    <div className="actions" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '1rem', backdropFilter: 'blur(5px)' }}>
+                                <div className="modal glass" style={{
+                                    padding: '2.5rem',
+                                    width: '850px',
+                                    maxWidth: '100%',
+                                    background: '#1e293b',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                        <h2 style={{ margin: 0 }}>{isCreating ? 'Create New' : 'Edit Item'} ({selectedResource})</h2>
+                                        <button onClick={() => { setEditItem(null); setIsCreating(false); }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                        {selectedResource === 'students' && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Techzite ID</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editItem?.techziteId || ''}
+                                                        onChange={e => setEditItem({ ...editItem, techziteId: e.target.value })}
+                                                        placeholder="e.g. TZ250001"
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Full Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editItem?.name || ''}
+                                                        onChange={e => setEditItem({ ...editItem, name: e.target.value })}
+                                                        placeholder="Student Full Name"
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Email Address (Optional)</label>
+                                                    <input
+                                                        type="email"
+                                                        value={editItem?.email || ''}
+                                                        onChange={e => setEditItem({ ...editItem, email: e.target.value })}
+                                                        placeholder="email@example.com"
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Phone Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editItem?.phoneNumber || ''}
+                                                        onChange={e => setEditItem({ ...editItem, phoneNumber: e.target.value })}
+                                                        placeholder="10-digit number"
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {selectedResource === 'groups' && (
+                                            <>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Group ID (e.g. TZ250001_TZ250002)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editItem?.groupId || ''}
+                                                        onChange={e => setEditItem({ ...editItem, groupId: e.target.value })}
+                                                        placeholder="Unique Group ID"
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                    <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#94a3b8' }}>Select Members ({editItem?.studentSelections?.filter((id: any) => id).length || 0}/3)</label>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                                                        {[0, 1, 2].map(idx => (
+                                                            <select
+                                                                key={idx}
+                                                                value={editItem?.studentSelections?.[idx] || ''}
+                                                                onChange={e => {
+                                                                    const newSels = [...(editItem?.studentSelections || ['', '', ''])];
+                                                                    newSels[idx] = e.target.value;
+                                                                    setEditItem({ ...editItem, studentSelections: newSels });
+                                                                }}
+                                                                style={{ padding: '0.75rem', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: 'white', cursor: 'pointer' }}
+                                                            >
+                                                                <option value="">-- Member {idx + 1} --</option>
+                                                                {studentsList.map(s => (
+                                                                    <option key={s._id} value={s._id}>{s.name} ({s.techziteId})</option>
+                                                                ))}
+                                                            </select>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+
+                                        {selectedResource === 'quizzes' && (
+                                            <>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                    <label style={{ fontSize: '0.875rem' }}>Quiz Title</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editItem?.title || ''}
+                                                        onChange={e => setEditItem({ ...editItem, title: e.target.value })}
+                                                        style={{ padding: '0.75rem', borderRadius: '4px', background: '#0f172a', border: '1px solid #334155', color: 'white' }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <label style={{ fontSize: '1rem', fontWeight: 'bold' }}>Questions ({editItem?.questions?.length || 0})</label>
+                                                        <button
+                                                            onClick={() => {
+                                                                const qs = [...(editItem?.questions || [])];
+                                                                qs.push({ text: '', options: ['', '', '', ''], correctAnswer: 0, points: 1 });
+                                                                setEditItem({ ...editItem, questions: qs });
+                                                            }}
+                                                            style={{ padding: '0.5rem 1rem', background: '#10b981', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}
+                                                        >+ Add Question</button>
+                                                    </div>
+
+                                                    {editItem?.questions?.map((q: any, qIdx: number) => (
+                                                        <div key={qIdx} style={{ padding: '1.5rem', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                <label>Question {qIdx + 1}</label>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const qs = editItem.questions.filter((_: any, i: number) => i !== qIdx);
+                                                                        setEditItem({ ...editItem, questions: qs });
+                                                                    }}
+                                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                                >Remove</button>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                value={q.text}
+                                                                placeholder="Question text"
+                                                                onChange={e => {
+                                                                    const qs = [...editItem.questions];
+                                                                    qs[qIdx].text = e.target.value;
+                                                                    setEditItem({ ...editItem, questions: qs });
+                                                                }}
+                                                                style={{ padding: '0.75rem', borderRadius: '4px', background: '#1e293b', border: '1px solid #334155', color: 'white' }}
+                                                            />
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                                {q.options.map((opt: string, oIdx: number) => (
+                                                                    <div key={oIdx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`q-${qIdx}-correct`}
+                                                                            checked={q.correctAnswer === oIdx}
+                                                                            onChange={() => {
+                                                                                const qs = [...editItem.questions];
+                                                                                qs[qIdx].correctAnswer = oIdx;
+                                                                                setEditItem({ ...editItem, questions: qs });
+                                                                            }}
+                                                                        />
+                                                                        <input
+                                                                            type="text"
+                                                                            value={opt}
+                                                                            placeholder={`Option ${oIdx + 1}`}
+                                                                            onChange={e => {
+                                                                                const qs = [...editItem.questions];
+                                                                                qs[qIdx].options[oIdx] = e.target.value;
+                                                                                setEditItem({ ...editItem, questions: qs });
+                                                                            }}
+                                                                            style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', background: '#1e293b', border: '1px solid #334155', color: 'white' }}
+                                                                        />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <label>Points:</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={q.points}
+                                                                    onChange={e => {
+                                                                        const qs = [...editItem.questions];
+                                                                        qs[qIdx].points = parseInt(e.target.value) || 1;
+                                                                        setEditItem({ ...editItem, questions: qs });
+                                                                    }}
+                                                                    style={{ width: '60px', padding: '0.5rem', borderRadius: '4px', background: '#1e293b', border: '1px solid #334155', color: 'white' }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>
                                         <button onClick={() => { setEditItem(null); setIsCreating(false); }} className="reject" style={{ background: 'gray' }}>Cancel</button>
                                         <button onClick={handleSaveResource} className="approve">Save Changes</button>
                                     </div>
                                 </div>
                             </div>
                         )}
+
 
                         <div className="table-container glass" style={{ padding: '1rem' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -386,15 +641,16 @@ const AdminDashboard = () => {
                                                 <th>TechID</th>
                                                 <th>Name</th>
                                                 <th>Phone</th>
+                                                <th>Email</th>
                                             </>
                                         )}
                                         {selectedResource === 'groups' && (
                                             <>
-                                                <th>Group ID</th>
-                                                <th>Students</th>
-                                                <th>Status</th>
+                                                <th style={{ padding: '1rem' }}>Students Details (Name, TID, Email, Phone)</th>
+                                                <th style={{ padding: '1rem' }}>Overall Status</th>
                                             </>
                                         )}
+
                                         {selectedResource === 'quizzes' && (
                                             <>
                                                 <th>Title</th>
@@ -405,30 +661,61 @@ const AdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {resourcesData.map((item: any) => (
+                                    {filteredData.map((item: any) => (
                                         <tr key={item._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                             {selectedResource === 'students' && (
                                                 <>
                                                     <td style={{ padding: '1rem' }}>{item.techziteId}</td>
                                                     <td style={{ padding: '1rem' }}>{item.name}</td>
                                                     <td style={{ padding: '1rem' }}>{item.phoneNumber}</td>
+                                                    <td style={{ padding: '1rem' }}>{item.email || 'N/A'}</td>
                                                 </>
                                             )}
                                             {selectedResource === 'groups' && (
                                                 <>
                                                     <td style={{ padding: '1rem' }}>
-                                                        {item.groupId ? item.groupId.substring(0, 8) + '...' : 'N/A'}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                            {item.students && item.students.length > 0
+                                                                ? item.students.map((s: any, sIdx: number) => (
+                                                                    <div key={sIdx} style={{
+                                                                        padding: '0.75rem',
+                                                                        background: 'rgba(255,255,255,0.05)',
+                                                                        borderRadius: '8px',
+                                                                        border: '1px solid rgba(255,255,255,0.1)'
+                                                                    }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                                            <span style={{ fontWeight: 'bold', color: '#60a5fa' }}>{s.name || 'Unknown'}</span>
+                                                                            <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>ID: {s.techziteId || 'N/A'}</span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', gap: '1rem' }}>
+                                                                            <span>📧 {s.email || 'N/A'}</span>
+                                                                            <span>📞 {s.phoneNumber || 'N/A'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                                : <span style={{ color: '#64748b', fontStyle: 'italic' }}>No members added</span>}
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '1rem' }}>
-                                                        {item.students && item.students.length > 0
-                                                            ? item.students.map((s: any) => s.name || s).join(', ')
-                                                            : 'No Students'}
-                                                    </td>
-                                                    <td style={{ padding: '1rem' }}>
-                                                        {item.quizState?.isFinished ? '✅ Done' : '⚠️ Active'}
+                                                        <span className={`badge ${item.quizState?.isFinished ? 'success' : 'warning'}`} style={{
+                                                            padding: '0.4rem 1rem',
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 'bold',
+                                                            background: item.quizState?.isFinished ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                            color: item.quizState?.isFinished ? '#10b981' : '#f59e0b',
+                                                            border: `1px solid ${item.quizState?.isFinished ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.4rem'
+                                                        }}>
+                                                            {item.quizState?.isFinished ? '✅ Finished' : '⌛ In Progress'}
+                                                        </span>
                                                     </td>
                                                 </>
                                             )}
+
+
                                             {selectedResource === 'quizzes' && (
                                                 <>
                                                     <td style={{ padding: '1rem' }}>{item.title || 'Quiz'}</td>
@@ -442,6 +729,12 @@ const AdminDashboard = () => {
                                             </td>
                                         </tr>
                                     ))}
+                                    {filteredData.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>No records found matching your search.</td>
+                                        </tr>
+                                    )}
+
                                 </tbody>
                             </table>
                         </div>
