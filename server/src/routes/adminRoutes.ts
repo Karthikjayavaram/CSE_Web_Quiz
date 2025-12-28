@@ -4,13 +4,18 @@ import { uploadStudents, uploadMiddleware, authenticateAdmin } from '../controll
 import { unlockGroup } from '../controllers/unlockController';
 import { groupLogin } from '../controllers/authController';
 import { getAllResources, deleteResource, updateResource, createResource } from '../controllers/resourceController';
+import { adminAuth } from '../middleware/adminAuth';
+
 
 const router = express.Router();
 
+router.post('/authenticate', authenticateAdmin);
+
+// Protected Routes below
+router.use(adminAuth);
+
 router.post('/upload-students', uploadMiddleware, uploadStudents);
 router.post('/unlock-group', unlockGroup);
-router.post('/login', groupLogin); // Legacy/Alternative
-router.post('/authenticate', authenticateAdmin);
 
 // Generic Resource Managment
 router.get('/resources/:resource', getAllResources);
@@ -18,8 +23,10 @@ router.post('/resources/:resource', createResource);
 router.put('/resources/:resource/:id', updateResource);
 router.delete('/resources/:resource/:id', deleteResource);
 
+
 // Heavy violators endpoint
-router.get('/heavy-violators', async (req, res) => {
+router.get('/heavy-violators', adminAuth, async (req, res) => {
+
     try {
         const groups = await Group.find({ violatedMultipleTimes: true })
             .populate('students', 'name techziteId');

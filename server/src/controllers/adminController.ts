@@ -81,10 +81,11 @@ export const authenticateAdmin = async (req: Request, res: Response) => {
     // Check against env variables or defaults (TRIMVED)
     const validUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
     const validPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
-    const providedUsername = (username || '').trim();
+    const providedUsername = (username || '').trim().toLowerCase();
     const providedPassword = (password || '').trim();
 
-    const isUsernameMatch = providedUsername === validUsername;
+    const isUsernameMatch = providedUsername === validUsername.toLowerCase();
+
     const isPasswordMatch = providedPassword === validPassword;
 
     console.log('Comparison Details:', {

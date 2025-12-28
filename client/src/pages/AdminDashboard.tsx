@@ -37,7 +37,29 @@ const AdminDashboard = () => {
 
 
     useEffect(() => {
+        // Set up axios interceptor for admin token
+        const interceptor = axios.interceptors.request.use((config) => {
+            const token = sessionStorage.getItem('adminToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+            return config;
+        });
+
+        const responseInterceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    sessionStorage.removeItem('adminToken');
+                    window.location.href = '/admin/login';
+                }
+                return Promise.reject(error);
+            }
+        );
+
         console.log('AdminDashboard: Connecting socket...');
+
+
 
         if (!socket.connected) {
             socket.connect();
@@ -69,14 +91,16 @@ const AdminDashboard = () => {
         setIsConnected(socket.connected);
 
         return () => {
+            axios.interceptors.request.eject(interceptor);
+            axios.interceptors.response.eject(responseInterceptor);
             socket.off('connect', onConnect);
+
             socket.off('disconnect', onDisconnect);
             socket.off('admin-violation-alert', onViolation);
-            // We usually don't want to disconnect the socket entirely if other components use it, 
-            // but for Admin Dashboard it's fine.
             socket.disconnect();
         };
     }, []);
+
 
     useEffect(() => {
         if (activeTab === 'results') {
