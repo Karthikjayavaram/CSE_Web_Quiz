@@ -20,7 +20,7 @@ const StudentSchema = new Schema({
     },
     email: {
         type: String,
-        required: true
+        required: false
     },
     phoneNumber: {
         type: String,
